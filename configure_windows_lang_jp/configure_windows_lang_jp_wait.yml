@@ -1,0 +1,61 @@
+---
+- name: Configure Japanese Language Pack for Windows Server
+  hosts: en_windows
+  gather_facts: no
+  tasks:
+    - name: Create working directory
+      win_file:
+        path: "C:\\temp"
+        state: directory
+
+    - name: Download Language Pack
+      win_get_url:
+        url: "Language Pack URL"
+        dest: "C:\\temp\\jalp.cab"
+
+    - name: Install Language Pack
+      win_shell: |
+        dism /Online /Add-Package /PackagePath:C:\\temp\\jalp.cab /NoRestart
+
+    - name: Set System Locale to Japanese
+      win_shell: |
+        Set-WinSystemLocale ja-JP
+        Set-TimeZone -Id "Tokyo Standard Time"
+
+    - name: Reboot the server
+      win_reboot:
+        post_reboot_delay: 300
+
+    - name: Wait for host to respond
+      wait_for_connection:
+        delay: 120
+        timeout: 3600
+
+    - name: Set System Locale and other Language settings
+      win_shell: |
+        Set-WinHomeLocation -GeoId 122
+        Set-WinUserLanguageList -LanguageList ja-JP -Force
+        Set-WinUILanguageOverride -Language ja-JP
+        Set-WinCultureFromLanguageListOptOut -OptOut 0
+        Set-WinDefaultInputMethodOverride -InputTip "0411:00000411"
+        Set-ItemProperty "registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\i8042prt\Parameters" -Name "LayerDriver JPN" -Value "kbd106.dll"
+        
+    - name: Create unattend.xml file
+      win_shell: |
+        $unattendxml = "C:\\temp\\unattend.xml"
+        $xml = @"
+        <gs:GlobalizationServices xmlns:gs="urn:longhornGlobalizationUnattend">
+        <gs:UserList>
+        <gs:User UserID="Current" CopySettingsToDefaultUserAcct="true" CopySettingsToSystemAcct="true"/>
+        </gs:UserList>
+        </gs:GlobalizationServices>
+        "@
+        $xml | Out-File -FilePath $unattendxml
+
+    - name: Execute control.exe with unattend.xml
+      win_shell: |
+        $unattendxml = "C:\\temp\\unattend.xml"
+        control.exe "intl.cpl,,/f:`"$unattendxml`""
+
+    - name: Final Reboot
+      win_reboot:

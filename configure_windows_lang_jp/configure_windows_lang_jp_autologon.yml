@@ -1,0 +1,72 @@
+---
+- name: Configure Japanese Language Pack for Windows Server
+  hosts: en_windows
+  gather_facts: no
+  tasks:
+    - name: Create working directory
+      win_file:
+        path: "C:\\temp"
+        state: directory
+
+    - name: Download Language Pack
+      win_get_url:
+        url: "Language Pack File URL"
+        dest: "C:\\temp\\jalp.cab"
+
+    - name: Install Language Pack
+      win_shell: |
+        dism /Online /Add-Package /PackagePath:C:\\temp\\jalp.cab /NoRestart
+
+    - name: Set System Locale to Japanese
+      win_shell: |
+        Set-WinSystemLocale ja-JP
+        Set-TimeZone -Id "Tokyo Standard Time"
+
+    - name: Set AutoLogon registry keys
+      win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon
+        name: "{{ item.name }}"
+        data: "{{ item.data }}"
+        type: "{{ item.type }}"
+      with_items:
+        - { name: 'AutoAdminLogon', data: '1', type: 'string' }
+        - { name: 'DefaultUserName', data: 'login user name', type: 'string' }
+        - { name: 'DefaultPassword', data: 'login password', type: 'string' }
+
+    - name: Configure RunOnce to Set Language Preferences on Next Logon
+      win_shell: |
+        $runoncecmd = "C:\\temp\\setuplang.ps1"
+        $autologonreg = "registry::\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+        $log = "C:\\temp\\setuplang.log"
+        $unattendxml = "C:\\temp\\unattend.xml"
+
+        $xml = @"
+        <gs:GlobalizationServices xmlns:gs="urn:longhornGlobalizationUnattend">
+        <gs:UserList>
+        <gs:User UserID="Current" CopySettingsToDefaultUserAcct="true" CopySettingsToSystemAcct="true"/>
+        </gs:UserList>
+        </gs:GlobalizationServices>
+        "@
+        $xml | Out-File -FilePath $unattendxml
+
+        $cmd = @"
+        Set-WinHomeLocation -GeoId 122
+        Set-WinUserLanguageList -LanguageList ja-JP -Force
+        Set-WinUILanguageOverride -Language ja-JP
+        Set-WinCultureFromLanguageListOptOut -OptOut 0
+        Set-WinDefaultInputMethodOverride -InputTip "0411:00000411"
+        Set-ItemProperty "registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\i8042prt\Parameters" -Name "LayerDriver JPN" -Value "kbd106.dll"
+        control.exe "intl.cpl,,/f:`"$unattendxml`""
+        Set-ItemProperty -Path "$autologonreg" -Name "AutoAdminLogon" -Value "0"
+        Set-ItemProperty -Path "$autologonreg" -Name "DefaultUserName" -Value ""
+        Set-ItemProperty -Path "$autologonreg" -Name "DefaultPassword" -Value ""
+        "Restart Computer" | Out-File -Append -FilePath "$log"
+        Restart-Computer -Force
+        "@
+
+        $cmd | Out-File -FilePath $runoncecmd
+
+        Set-ItemProperty -Path "registry::\HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce" -Name "SetupLang" -Value "powershell.exe -ExecutionPolicy RemoteSigned -file `"$runoncecmd`""
+
+    - name: Reboot the server
+      win_reboot:
