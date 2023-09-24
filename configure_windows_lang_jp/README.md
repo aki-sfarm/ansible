@@ -7,7 +7,7 @@ configure_windows_lang_jp_autologon.ymlとconfigure_windows_lang_jp_wait.yml
 以下のAzure コラム「Windows VM 全自動日本語化」の中のサンプルスクリプトを参考にプレイブック化しました。
 https://www.intellilink.co.jp/column/ms/2022/020800.aspx
 
-###パラメータの入力
+### パラメータの入力
 1回目の再起動後の処理は、PowerShellスクリプトで行われます。
 また、そのPowerShellスクリプトを実行するために管理者権限ユーザーでオートログオンが必要です。
 そのため、プレイブック内の以下のlogin user nameにWindowsの管理者ユーザー名、login passwordにそのパスワードを入力してください。
@@ -29,10 +29,10 @@ ex)https://sample0123456789.blob.core.windows.net/iso/ws2019lang/Microsoft-Windo
       win_get_url:
         url: "Language Pack File URL"
 
-##configure_windows_lang_jp_wait.yml
+## configure_windows_lang_jp_wait.yml
 すべてAnsibleプレイブック内で完結します。
 
-###パラメータの入力
+### パラメータの入力
 日本語化には、日本語のcabファイルが必要です。
 WindowsServer2019であれば、2019用の日本語cabファイル、2022であればそれようのcabファイルを使ってください。
 違うcabファイルを使うと、失敗します。
