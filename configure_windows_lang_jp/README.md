@@ -1,44 +1,47 @@
-# crossMatrix
-Excelでクロスマトリックス(その他、クリエイティブマトリックスなどと呼ばれたり)によるアイデアなどの拡散アプローチをAzure OpenAIと一緒に行うツールです。
+# configure_windows_lang_jp
+Windowsの言語やタイムゾーンなど日本語化するAnsibleプレイブックです。
+configure_windows_lang_jp_autologon.ymlとconfigure_windows_lang_jp_wait.yml
+どちらを実行しても日本語化はできます。
 
-## マクロ利用準備
+## configure_windows_lang_jp_autologon.yml
+以下のAzure コラム「Windows VM 全自動日本語化」の中のサンプルスクリプトを参考にプレイブック化しました。
+https://www.intellilink.co.jp/column/ms/2022/020800.aspx
 
-###JSONライブラリをインポート
-JSONの解析のための「Dictionary」オブジェクトと「JSONConverter」を使用する方法を試します。この方法では、外部のJSONライブラリをVBAにインポートする必要があります。
+###パラメータの入力
+1回目の再起動後の処理は、PowerShellスクリプトで行われます。
+また、そのPowerShellスクリプトを実行するために管理者権限ユーザーでオートログオンが必要です。
+そのため、プレイブック内の以下のlogin user nameにWindowsの管理者ユーザー名、login passwordにそのパスワードを入力してください。
+      with_items:
+        - { name: 'AutoAdminLogon', data: '1', type: 'string' }
+        - { name: 'DefaultUserName', data: 'login user name', type: 'string' }
+        - { name: 'DefaultPassword', data: 'login password', type: 'string' }
 
-以下のURLからJsonConverter.basファイルをダウンロードし、VBAエディタ メニューの「ファイル」 > 「インポートファイル」から、ファイルをインポート
-[リンク]([https://www.google.com/](https://github.com/VBA-tools/VBA-JSON))
+日本語化には、日本語のcabファイルが必要です。
+WindowsServer2019であれば、2019用の日本語cabファイル、2022であればそれようのcabファイルを使ってください。
+違うcabファイルを使うと、失敗します。
+また、ファイルはクラウドストレージなどに保管し、ダウンロードできるようにしてください。
+以下は、AzureBlobからダウンロードする際の指定の例です。
+Language Pack File URLの箇所に入力してください。
 
-###Azure OpenAI キー
-セキュリティの考慮から、OpenAIのAPI Keyは、環境変数から取得と再起動で破棄されるようにしたかったのですが、
-再起動では破棄できないシステム全体の環境変数からしか取得できないことがわかり、利用環境に合わないので止めました。
+ex)https://sample0123456789.blob.core.windows.net/iso/ws2019lang/Microsoft-Windows-Server-Language-Pack_x64_ja-jp.cab
 
-それでも念のため、マクロ開発画面を開いてもすぐにはわからないようにエンコードしたAPIキーを入力するようにしています。
-(根本的には、なにも解決に繋がっていません。自身の環境にあうセキュリティ対策を実施してください。私は、マクロをパスワードロックする予定です。)
-そのため、マクロをそのまま利用する場合、APIキーをエンコードしてください。
+    - name: Download Language Pack
+      win_get_url:
+        url: "Language Pack File URL"
 
-> @echo off
-> echo YourAPIKey | certutil -encode -f - | find /v "CERTIFICATE"
+##configure_windows_lang_jp_wait.yml
+すべてAnsibleプレイブック内で完結します。
 
-上記のコマンドラインは、APIキーをBase64エンコードして標準出力に出力します。ただし、この出力には余計な"-----BEGIN CERTIFICATE-----"や"-----END CERTIFICATE-----"も含まれてしまうので、findコマンドを使ってそれらを除外しています。
+###パラメータの入力
+日本語化には、日本語のcabファイルが必要です。
+WindowsServer2019であれば、2019用の日本語cabファイル、2022であればそれようのcabファイルを使ってください。
+違うcabファイルを使うと、失敗します。
+また、ファイルはクラウドストレージなどに保管し、ダウンロードできるようにしてください。
+以下は、AzureBlobからダウンロードする際の指定の例です。
+Language Pack File URLの箇所に入力してください。
 
-###Azure OpenAIアクセス用の値を入力
+ex)https://sample0123456789.blob.core.windows.net/iso/ws2019lang/Microsoft-Windows-Server-Language-Pack_x64_ja-jp.cab
 
-EncodedAPIKey = "<Your Encoded API Key>"
-エンコードしたAPIキーを入力します。
-
-resource = "Your OpenAI Resource Name"
-AzureOpenAIのURIに入る自身のOpenAIリソース名を入力します。
-
-deployment = "<Your OpenAI deployment Model>"
-AzureOpenAIにデプロイしたモデル名を入力します。
-
-
-## 利用について
-OpenAIへの問い合わせを実行できるシートはシート名"CrossMatrix"のみです。
-サンプルシートを二つ用意しています。
-マクロ"DuplicateSheetAsCrossMatrix"を実行すると、現在アクティブなシートが複製され、シート名"CrossMatrix"が作成されます。
-その際に、シート名"CrossMatrix"が存在する場合、それは削除されます。
-
-シート名"CrossMatrixに入力された値を基にAzure OpenAIに問い合わせを行います。
-マクロ"MakeProcesCrossMatrix"を実行してください。
+    - name: Download Language Pack
+      win_get_url:
+        url: "Language Pack File URL"
